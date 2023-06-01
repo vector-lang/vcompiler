@@ -1,0 +1,97 @@
+Description of the vector programming language
+==============================================
+
+INDENT   = \t
+NEW_LINE = \n
+
+compiler_directive: $ directive
+single_sign:
+	("+"|"-"|"/"|"*"|"!"|"="|"%")
+compound_sign:
+	("+="|"-="|"/="|"*=")
+comparison_sign:
+	("=="|"<"|">"|"<="|">="|"!=")
+int_literal:
+	["-"|"+"] (0|...|9)+
+hex_literal:
+	0"x"(int_literal|("A"..."F")+ )
+unicode_sequence:
+	(U+0000 ... U+FFFF)+
+str_literal:
+	' " ' unicode_sequence ' " '
+float_literal:
+	int_literal "." int_literal
+literal:
+	int_literal|hex_literal|str_literal|float_literal
+comment:
+	(("//" word+ NEW_LINE) | ("///" word+ "///" ))
+word:
+	unicode_sequence
+type:
+	(word|"auto"|"(" type ")")
+dotted:
+	word ("." word)+
+argument:
+	["*"][word "="] expression
+call:
+	(word|dotted) "(" (argument ",")* ")"
+index:
+	(word|dotted) "[" (int_literal [":"int_literal] | index) "]"
+unary:
+	(literal|word|dotted|call|index)
+binary:
+	unary (single_sign|compound_sign|comparison_sign|"or"|"and") unary
+array_compr:
+	foreach "(" expression "in" expression ")" do (expression|array_compr)
+array:
+	"[" literal|array_compr|array "]"
+dict_compr:
+	foreach "(" expression "in" expression ")" do (expression[":" expression] |array_compr) 
+expression:
+	["("] unary|binary|tertiary|array|dictionary|del_stmt|expression [")"]
+dictionary:
+	"{" (expression ":" expression)| dict_compr| dictionary "}"
+tertiary:
+	expression "if" expression "else" (expression)
+modifier:
+	("expose"|"thread"|"coroutine")
+assignment:
+	modifier* (type | ("this") ".") word ["=" expression]
+del_stmt:
+	"del" word
+exposure:
+	"expose": (INDENT assignment)+
+struct:
+	["expose"] "struct" word ":" (INDENT type word ["=" expression] )+
+if_stmt:
+	"if" expression ("then" ":") block ("else" ":") block|if_stmt
+state_stmt:
+	"state" expression ":" case_stmt+
+case_stmt:
+	"case" literal ":" block
+do_stmt:
+	"do" ":" block ("on" expression ":" block)+
+while_stmt:
+	"while" expression ":" b:=(block|"break") ["else" ":" b]
+foreach_stmt:
+	"foreach" "(" expression in expression ")" ":" b:=(block|"break") ["else" ":" b]
+repeat_stmt:
+	"repeat" ":" block "until" expression
+as_stmt:
+	expression "as" word
+trigger_stmt:
+	"trigger" call
+stmt:
+	(expression|assignment|if_stmt|state_stmt|while_stmt|foreach_stmt|repeat_stmt|trigger_stmt) ";" NEW_LINE
+block:
+	(INDENT stmt)+
+parameter:
+	["-"] type word ["="("..."|"{...}")]
+func_signature:
+	modifier* "function" "(" type|"void"| ")" word "(" (paramter ",")*|"void" ")" (":"|";")
+function:
+	func_signature (block|"return" expression )
+class:
+	["expose"]["abstract"] "class" word ["inherits" word] ":" (assignment|exposure|function)+
+module:
+	(assignment|exposure|function|class)
